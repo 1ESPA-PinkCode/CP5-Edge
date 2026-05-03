@@ -193,9 +193,11 @@ Monte conforme a simulação do Wokwi ou imagem do projeto.
 Abra o projeto na Arduino IDE ou no Wokwi.
 
 ### 3. Instale as bibliotecas
+``` text
 WiFi.h
 PubSubClient.h
 DHT.h
+```
 
 ### 4. Faça upload para o ESP32
 
@@ -205,14 +207,98 @@ Envie o código para a placa.
 
 Defina no código:
 
-SSID
-broker
-porta
-tópicos MQTT
+- SSID
+- broker
+- porta
+- tópicos MQTT
 
 ### 6. Execute
 
 Acompanhe os dados sendo enviados ao FIWARE e visualize no dashboard.
+
+---
+
+## Dashboard Vinheria Agnello
+
+Painel web em Flask que consome dados do FIWARE (Orion :1026 + STH-Comet :8666) para monitorar a sala de guarda da Vinheria Agnello em tempo real, e envia comandos remotos ao ESP32 via Orion → IoT Agent → MQTT.
+
+Roda como serviço systemd na porta 5000 da própria VM do FIWARE.
+
+---
+
+## Estrutura
+```bash
+dashboard-vinheria/
+├── app.py
+├── requirements.txt
+├── dashboard-vinheria.service
+├── templates/
+│   └── index.html
+└── static/
+    ├── style.css
+    └── app.js
+```
+
+---
+
+## Pré-requisitos
+- FIWARE rodando (Orion :1026, STH-Comet :8666, IoT Agent :4041)
+- Entidade provisionada
+- Subscription ativa no STH-Comet
+- Python 3.9+
+- Porta 5000 liberada
+
+---
+
+## Instalação
+```text
+sudo mkdir -p /opt/dashboard-vinheria
+sudo cp -r * /opt/dashboard-vinheria/
+cd /opt/dashboard-vinheria
+
+sudo apt-get update
+sudo apt-get install -y python3-venv python3-pip
+
+sudo python3 -m venv /opt/dashboard-vinheria/.venv
+sudo /opt/dashboard-vinheria/.venv/bin/pip install --upgrade pip
+sudo /opt/dashboard-vinheria/.venv/bin/pip install -r requirements.txt
+```
+---
+
+## Executar Manualmente 
+
+```text
+sudo /opt/dashboard-vinheria/.venv/bin/python /opt/dashboard-vinheria/app.py
+```
+---
+## Serviço systemd
+```text
+sudo cp /opt/dashboard-vinheria/dashboard-vinheria.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable dashboard-vinheria
+sudo systemctl start dashboard-vinheria
+```
+
+---
+
+## Acesso
+```text
+http://34.60.49.205:5000/
+```
+
+---
+
+## Endpoints da API
+| Método | Rota                    |
+| ------ | ----------------------- |
+| GET    | /                       |
+| GET    | /api/current            |
+| GET    | /api/history            |
+| POST   | /api/cmd/alert_on       |
+| POST   | /api/cmd/alert_off      |
+| POST   | /api/cmd/silence_buzzer |
+| GET    | /api/health             |
+
 
 ---
 
