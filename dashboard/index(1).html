@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vinheria Agnello — Painel de Monitoramento</title>
+
+  <!-- Tipografia: serifa elegante (títulos) + sans clean (dados) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <!-- ─── Header ───────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">VA</div>
+      <div class="brand-text">
+        <h1>Vinheria Agnello</h1>
+        <p class="subtitle">Painel de monitoramento — sala de guarda</p>
+      </div>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="dot"></span>
+      <span class="label">Conectando...</span>
+    </div>
+  </header>
+
+  <!-- ─── Faixa de alerta (aparece só quando há alerta) ─── -->
+  <div class="alert-banner" id="alertBanner" hidden>
+    <div class="alert-icon">⚠</div>
+    <div class="alert-content">
+      <strong id="alertTitle">Atenção</strong>
+      <span id="alertReason">—</span>
+    </div>
+  </div>
+
+  <!-- ─── Grid de cards atuais ─────────────────────────── -->
+  <main class="container">
+    <section class="cards">
+      <div class="card" id="cardTemp">
+        <div class="card-label">Temperatura</div>
+        <div class="card-value"><span id="valTemp">—</span><span class="unit">°C</span></div>
+        <div class="card-meta" id="metaTemp">faixa ideal: — a —</div>
+      </div>
+
+      <div class="card" id="cardHumid">
+        <div class="card-label">Umidade Relativa</div>
+        <div class="card-value"><span id="valHumid">—</span><span class="unit">%</span></div>
+        <div class="card-meta" id="metaHumid">faixa ideal: — a —</div>
+      </div>
+
+      <div class="card" id="cardLux">
+        <div class="card-label">Luminosidade</div>
+        <div class="card-value"><span id="valLux">—</span><span class="unit">%</span></div>
+        <div class="card-meta" id="metaLux">máximo: —</div>
+      </div>
+
+      <div class="card card-status" id="cardStatus">
+        <div class="card-label">Conforto</div>
+        <div class="card-value status-value" id="valStatus">—</div>
+        <div class="card-meta" id="metaStatus">aguardando dados...</div>
+      </div>
+    </section>
+
+    <!-- ─── Painel de comandos remotos ────────────────── -->
+    <section class="commands">
+      <h2>Comandos remotos</h2>
+      <p class="commands-help">Estes comandos são enviados pelo Orion ao ESP32 via MQTT.</p>
+      <div class="cmd-buttons">
+        <button class="btn btn-primary"   data-cmd="alert_on">🔔 Acionar alerta</button>
+        <button class="btn btn-secondary" data-cmd="silence_buzzer">🔇 Silenciar buzzer</button>
+        <button class="btn btn-outline"   data-cmd="alert_off">✕ Desligar alerta</button>
+      </div>
+      <div class="cmd-result" id="cmdResult" hidden></div>
+    </section>
+
+    <!-- ─── Gráficos históricos ────────────────────────── -->
+    <section class="charts">
+      <div class="chart-box">
+        <header><h3>Temperatura — histórico</h3></header>
+        <canvas id="chartTemp"></canvas>
+      </div>
+      <div class="chart-box">
+        <header><h3>Umidade — histórico</h3></header>
+        <canvas id="chartHumid"></canvas>
+      </div>
+      <div class="chart-box">
+        <header><h3>Luminosidade — histórico</h3></header>
+        <canvas id="chartLux"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footbar">
+    <span>Atualizado às <span id="lastUpdate">—</span></span>
+    <span class="sep">•</span>
+    <span>FIWARE STH-Comet :8666 · Orion :1026</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

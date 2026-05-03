@@ -1,5 +1,10 @@
-// Autor base: Fábio Henrique Cabrini
-// Adaptado CP5: Vinheria Agnello — FIWARE IoT
+// Autoras: 
+// Lara Modif Essa Alssabak - RM567947
+// Maria Luisa Boucinhas Franco - RM567355
+// Maria Luiza Kochnoff da Matta -  RM568459
+// Roberta Moreira dos Santos - RM567825
+// 
+// CP5: Vinheria Agnello — FIWARE IoT
 // Hardware: ESP32 + DHT-22 + LDR (módulo 4 pinos AO) + Buzzer + LED externo
 //
 // Resumo:
@@ -7,7 +12,6 @@
 //   - Avalia ambiente contra limiares da vinheria e publica status/alertas.
 //   - Recebe comandos remotos: alert_on, alert_off, silence_buzzer.
 //
-// Pinagem (diagram.json Cabrini):
 //   DHT-22  → D4   (D35 é input-only, não funciona com DHT)
 //   LDR AO  → D34  (input only — leitura analógica)
 //   Buzzer  → D32  (via resistor 1kΩ)
@@ -20,7 +24,7 @@
 // ─── Configurações de rede e broker ──────────────────────────
 const char* default_SSID            = "Wokwi-GUEST";          // Wi-Fi do Wokwi
 const char* default_PASSWORD        = "";                      // sem senha no Wokwi
-const char* default_BROKER_MQTT     = "34.60.49.205";          // IP da sua VM
+const char* default_BROKER_MQTT     = "34.60.49.205";          // IP da VM
 const int   default_BROKER_PORT     = 1883;
 const char* default_TOPICO_SUBSCRIBE = "/TEF/vinheriaAgnello001/cmd";    // recebe comandos
 const char* default_TOPICO_PUBLISH   = "/TEF/vinheriaAgnello001/attrs";  // publica atributos
@@ -29,7 +33,7 @@ const char* default_ID_MQTT          = "fiware_vinheria001";
 const int   default_LED_PIN          = 5;                     // GPIO 5 — LED externo no protoboard
 const char* topicPrefix              = "vinheriaAgnello001";   // prefixo dos comandos
 
-// Variáveis editáveis (mesmo padrão do Cabrini)
+// Variáveis editáveis
 char* SSID             = const_cast<char*>(default_SSID);
 char* PASSWORD         = const_cast<char*>(default_PASSWORD);
 char* BROKER_MQTT      = const_cast<char*>(default_BROKER_MQTT);
@@ -44,9 +48,9 @@ int   LED_PIN          = default_LED_PIN;
 #define DHT_PIN    4    // D4 — bidirecional, funciona com DHT22
 #define DHT_TYPE   DHT22
 #define LDR_PIN    34   // D34 — AO do módulo LDR (input only)
-#define BUZZER_PIN 32   // D32 — buzzer via resistor 1kΩ
+#define BUZZER_PIN 32   // D32 — buzzer
 
-// ─── Limiares da vinheria (alinhados aos static_attributes da coleção) ──
+// ─── Limiares da vinheria ──
 const float TEMP_MIN  = 12.0;  // °C
 const float TEMP_MAX  = 18.0;  // °C
 const float HUMID_MIN = 60.0;  // %
@@ -95,7 +99,7 @@ void InitOutput() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
 
-  // Pisca LED na inicialização (igual ao código original do Cabrini)
+  // Pisca LED na inicialização
   boolean toggle = false;
   for (int i = 0; i <= 10; i++) {
     toggle = !toggle;
