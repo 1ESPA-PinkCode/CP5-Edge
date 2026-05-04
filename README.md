@@ -283,7 +283,7 @@ sudo systemctl start dashboard-vinheria
 
 ## Acesso
 ```text
-http://IP_DA_VM:5000/
+http:104.197.156.52:5000
 ```
 
 ---
