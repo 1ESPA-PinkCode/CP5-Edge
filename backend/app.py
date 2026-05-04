@@ -1,18 +1,13 @@
 """
-Dashboard Vinheria Agnello — backend Flask
-==========================================
-Consome dados do FIWARE (Orion + STH-Comet) e expõe APIs para o dashboard.
-Também envia comandos remotos (alert_on, alert_off, silence_buzzer) ao ESP32
-via Orion → IoT Agent → MQTT.
+Backend do Dashboard - Vinheria Agnello
 
-Endpoints:
-  GET  /                       Dashboard HTML
-  GET  /api/current            Estado atual da entidade (Orion :1026)
-  GET  /api/history?lastN=N    Histórico dos sensores (STH :8666)
-  POST /api/cmd/alert_on       Aciona alerta remoto
-  POST /api/cmd/alert_off      Desliga alerta remoto
-  POST /api/cmd/silence_buzzer Silencia buzzer
-  GET  /api/health             Healthcheck dos serviços FIWARE
+Responsabilidades:
+- Consultar dados atuais no Orion Context Broker
+- Recuperar histórico de sensores via STH-Comet
+- Enviar comandos remotos ao ESP32 (via IoT Agent e MQTT)
+
+Arquitetura:
+Flask → Orion → IoT Agent → MQTT → ESP32
 """
 
 from flask import Flask, jsonify, render_template, request
@@ -20,14 +15,17 @@ import requests
 import logging
 
 # ───── Configuração FIWARE ──────────────────────────────────
-# Como o dashboard roda NA MESMA VM do FIWARE, usamos localhost.
-# Os containers expõem as portas 1026 (Orion) e 8666 (STH-Comet) no host.
+# Como o backend roda na mesma VM dos serviços FIWARE,
+# utilizamos localhost para acesso direto aos containers expostos.
 FIWARE_HOST       = "localhost"
 ORION_PORT        = 1026
 STH_PORT          = 8666
 
+# Identificação da entidade monitorada
 ENTITY_ID         = "urn:ngsi-ld:VinheriaAgnello:001"
 ENTITY_TYPE       = "VinheriaAgnello"
+
+# Cabeçalhos obrigatórios do FIWARE
 FIWARE_SERVICE    = "smart"
 FIWARE_SVCPATH    = "/"
 
@@ -36,25 +34,35 @@ FIWARE_HEADERS = {
     "fiware-servicepath": FIWARE_SVCPATH,
 }
 
-# Atributos com histórico que vamos puxar do STH-Comet
+# Atributos que possuem histórico armazenado no STH-Comet
 HISTORY_ATTRS = ["temperature", "humidity", "luminosity"]
 
-# ───── Logging ─────────────────────────────────────────────
+# ───── Configuração de Logging ─────────────────────────────
+# Define formato e nível de logs da aplicação
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("vinheria-dashboard")
 
-# ───── Flask app ───────────────────────────────────────────
+# ───── Inicialização do Flask ──────────────────────────────
 app = Flask(__name__)
 
 
 # ============================================================
-#  Helpers — wrappers das APIs FIWARE
+# Helpers — Integração com APIs do FIWARE
 # ============================================================
+
 def orion_get_entity():
-    """Retorna a entidade VinheriaAgnello001 inteira do Orion."""
+    """
+    Obtém a entidade completa no Orion Context Broker.
+
+    Returns:
+        dict: JSON contendo todos os atributos da entidade
+
+    Raises:
+        requests.exceptions.RequestException: erro de conexão ou resposta inválida
+    """
     url = f"http://{FIWARE_HOST}:{ORION_PORT}/v2/entities/{ENTITY_ID}"
     r = requests.get(url, headers=FIWARE_HEADERS, timeout=5)
     r.raise_for_status()
@@ -63,13 +71,21 @@ def orion_get_entity():
 
 def orion_send_command(cmd_name):
     """
-    Envia um comando para a entidade no Orion.
-    Orion repassa ao IoT Agent, que publica via MQTT pro ESP32.
-    Retorna 204 No Content em caso de sucesso.
+    Envia um comando para a entidade via Orion.
+
+    Fluxo:
+    Orion → IoT Agent → MQTT → ESP32
+
+    Args:
+        cmd_name (str): nome do comando (ex: alert_on, alert_off)
+
+    Returns:
+        int: status HTTP retornado pelo Orion (esperado: 204)
     """
     url = f"http://{FIWARE_HOST}:{ORION_PORT}/v2/entities/{ENTITY_ID}/attrs"
     headers = {**FIWARE_HEADERS, "Content-Type": "application/json"}
     payload = {cmd_name: {"type": "command", "value": ""}}
+
     r = requests.patch(url, headers=headers, json=payload, timeout=5)
     r.raise_for_status()
     return r.status_code
@@ -77,19 +93,28 @@ def orion_send_command(cmd_name):
 
 def sth_get_history(attr, last_n=50):
     """
-    Pega últimas N leituras de um atributo no STH-Comet.
-    Retorna lista de dicts: [{recvTime, attrValue}, ...]
+    Recupera histórico de um atributo via STH-Comet.
+
+    Args:
+        attr (str): nome do atributo (temperature, humidity, luminosity)
+        last_n (int): quantidade máxima de registros retornados
+
+    Returns:
+        list[dict]: lista de medições no formato:
+            [{"recvTime": str, "value": any}, ...]
     """
     url = (
         f"http://{FIWARE_HOST}:{STH_PORT}/STH/v1/contextEntities"
         f"/type/{ENTITY_TYPE}/id/{ENTITY_ID}/attributes/{attr}"
     )
     params = {"lastN": last_n}
+
     r = requests.get(url, headers=FIWARE_HEADERS, params=params, timeout=10)
     r.raise_for_status()
     data = r.json()
 
-    # Caminho do STH: contextResponses[0].contextElement.attributes[0].values
+    # A resposta do STH-Comet possui estrutura aninhada.
+    # Extraímos apenas a lista de valores do atributo solicitado.
     try:
         values = (data["contextResponses"][0]
                       ["contextElement"]
@@ -98,7 +123,7 @@ def sth_get_history(attr, last_n=50):
     except (KeyError, IndexError):
         return []
 
-    # Normaliza pra lista enxuta
+    # Normalização dos dados para formato simplificado
     return [
         {"recvTime": v.get("recvTime"), "value": v.get("attrValue")}
         for v in values
@@ -106,7 +131,17 @@ def sth_get_history(attr, last_n=50):
 
 
 def extract_attr(entity, name, default=None):
-    """Pega .value de um atributo da entidade Orion, com fallback."""
+    """
+    Extrai o valor de um atributo da entidade Orion.
+
+    Args:
+        entity (dict): entidade completa retornada pelo Orion
+        name (str): nome do atributo
+        default: valor padrão caso o atributo não exista
+
+    Returns:
+        any: valor do atributo ou default
+    """
     a = entity.get(name)
     if not a:
         return default
@@ -114,17 +149,22 @@ def extract_attr(entity, name, default=None):
 
 
 # ============================================================
-#  Rotas
+# Rotas da aplicação
 # ============================================================
+
 @app.route("/")
 def index():
-    """Dashboard HTML."""
+    """Renderiza a página principal do dashboard."""
     return render_template("index.html")
 
 
 @app.route("/api/current")
 def api_current():
-    """Estado atual lido do Orion (single-shot)."""
+    """
+    Retorna o estado atual da entidade consultando o Orion.
+
+    Realiza uma leitura direta (single-shot) dos dados mais recentes.
+    """
     try:
         entity = orion_get_entity()
     except requests.exceptions.RequestException as e:
@@ -158,14 +198,22 @@ def api_current():
 
 @app.route("/api/history")
 def api_history():
-    """Histórico dos sensores via STH-Comet."""
+    """
+    Retorna o histórico recente dos sensores via STH-Comet.
+
+    Query params:
+        lastN (int): quantidade de registros (default=50, máx=500)
+    """
     try:
         last_n = int(request.args.get("lastN", 50))
     except ValueError:
         last_n = 50
-    last_n = max(1, min(last_n, 500))  # clamp
+
+    # Garante limites seguros para evitar sobrecarga
+    last_n = max(1, min(last_n, 500))
 
     result = {}
+
     for attr in HISTORY_ATTRS:
         try:
             result[attr] = sth_get_history(attr, last_n)
@@ -178,7 +226,14 @@ def api_history():
 
 @app.route("/api/cmd/<cmd>", methods=["POST"])
 def api_cmd(cmd):
-    """Envia um comando remoto pro ESP32 via Orion."""
+    """
+    Envia um comando remoto ao dispositivo via Orion.
+
+    Comandos suportados:
+        - alert_on
+        - alert_off
+        - silence_buzzer
+    """
     if cmd not in {"alert_on", "alert_off", "silence_buzzer"}:
         return jsonify({"error": "unknown_command", "command": cmd}), 400
 
@@ -189,13 +244,24 @@ def api_cmd(cmd):
         return jsonify({"error": "orion_unavailable", "detail": str(e)}), 502
 
     log.info(f"Comando {cmd} enviado (Orion respondeu {status})")
-    return jsonify({"command": cmd, "status": "sent", "orion_status": status})
+
+    return jsonify({
+        "command": cmd,
+        "status": "sent",
+        "orion_status": status
+    })
 
 
 @app.route("/api/health")
 def api_health():
-    """Healthcheck rápido do Orion + STH."""
+    """
+    Verifica a disponibilidade dos serviços Orion e STH-Comet.
+
+    Returns:
+        dict: status de cada serviço (ok ou erro)
+    """
     health = {}
+
     try:
         r = requests.get(f"http://{FIWARE_HOST}:{ORION_PORT}/version", timeout=3)
         health["orion"] = "ok" if r.ok else f"http_{r.status_code}"
@@ -212,8 +278,10 @@ def api_health():
 
 
 # ============================================================
-#  Main
+# Execução da aplicação
 # ============================================================
+
 if __name__ == "__main__":
-    # 0.0.0.0 = aceita conexões de qualquer IP, porta 5000 (requisito do CP5)
+    # 0.0.0.0 permite acesso externo (necessário para testes e integração)
+    # Porta 5000 conforme requisito do projeto (CP5)
     app.run(host="0.0.0.0", port=5000, debug=False)
