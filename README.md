@@ -66,7 +66,8 @@ Link da simulação: https://wokwi.com/projects/462016964811682817
 ---
 
 ### Arquitetura do Projeto
-<img width="700" alt="arquitetura" src="https://github.com/user-attachments/assets/INSERIR_ARQUITETURA_AQUI" />
+<img width="1290" height="1422" alt="WhatsApp Image 2026-05-04 at 08 50 16" src="https://github.com/user-attachments/assets/84bb1408-aed6-4a8f-914a-f838269d0d4f" />
+
 
 ---
 
@@ -283,7 +284,7 @@ sudo systemctl start dashboard-vinheria
 
 ## Acesso
 ```text
-http://IP_DA_VM:5000/
+http:104.197.156.52:5000
 ```
 
 ---
